@@ -1,0 +1,66 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  password      String
+  name          String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  items         RenewalItem[]
+  notifications Notification[]
+}
+
+model RenewalItem {
+  id               String      @id @default(uuid())
+  userId           String
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  category         String      // e.g., "Subscription", "Domain", "VPS", "VPN", "Insurance", "Warranty", "Passport", "Contract", "Other"
+  cost             Float?
+  currency         String      @default("USD")
+  expiryDate       DateTime
+  renewalCycle     String      @default("ANNUAL") // e.g., "MONTHLY", "ANNUAL", "ONCE", "BIANNUAL", "QUARTERLY"
+  remindBeforeDays Int         @default(7) // Number of days before expiry to send reminder
+  description      String?
+  status           String      @default("ACTIVE") // "ACTIVE", "PAUSED", "EXPIRED", "ARCHIVED"
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  reminders        Reminder[]
+
+  @@index([userId])
+}
+
+model Reminder {
+  id          String      @id @default(uuid())
+  itemId      String
+  item        RenewalItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  triggerDate DateTime    // Date when reminder should be sent (calculated based on expiryDate - remindBeforeDays)
+  sent        Boolean     @default(false)
+  sentAt      DateTime?
+  type        String      @default("BOTH") // "EMAIL", "IN_APP", "BOTH"
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([itemId])
+  @@index([triggerDate, sent])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
